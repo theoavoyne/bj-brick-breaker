@@ -1,0 +1,22 @@
+{
+  "parser": "babel-eslint",
+  "extends": "airbnb",
+  "env": {
+    "browser": true,
+    "es2020": true,
+  },
+  "globals": {
+    "REACT_ENV": "readonly",
+  },
+  "rules": {
+    // GLOBAL
+    "no-alert": "off",
+    "no-console": "off",
+
+    // REACT
+    "react/jsx-filename-extension": "off",
+    "react/jsx-fragments": "off",
+    "jsx-a11y/label-has-associated-control": [2, { "assert": "either" }],
+    "react/jsx-one-expression-per-line": "off"
+  }
+}
