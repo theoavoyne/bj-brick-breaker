@@ -19,6 +19,7 @@ const plainLetters = [
 const sphereMaxY = 190;
 const sphereMinY = 96;
 const sphereRadius = 5;
+const sphereSlopeSoftener = 0.2;
 
 // COMPUTED
 
@@ -172,6 +173,7 @@ const update = () => {
         });
         if (hits > 0) {
           sphereDirection = -1;
+          sphereSlope *= sphereSlopeSoftener;
         } else { gameLost = true; }
       } else if (sphereDirection === -1) {
         if (Math.abs(sphere.position.x - cylinder.position.x) <= sphereCylinderMaxDist) {
