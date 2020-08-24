@@ -7,13 +7,33 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 import workSans from './static/fonts/workSans.json';
 
+// PARAMETERS
+
+const cylinderHeight = 20;
+const sphereMaxY = 190;
+const sphereMinY = 96;
+const sphereRadius = 5;
+
+// COMPUTED
+
+const sphereCylinderMaxDist = (cylinderHeight / 2) + sphereRadius;
+
+// CLOCK
+
+const clock = new THREE.Clock(false);
+
 // GLOBAL VARIABLES
 
 let camera;
 let controls;
 let cylinder;
+let gameLost = false;
 let renderer;
 let scene;
+let sphere;
+let sphereDirection = 1;
+let sphereSlope = 0;
+let textWidth;
 
 // FUNCTIONS
 
@@ -49,10 +69,6 @@ const init = () => {
   light.position.set(0, 100, 100);
   scene.add(light);
 
-  const sphereSize = 1;
-  const pointLightHelper = new THREE.PointLightHelper(light, sphereSize);
-  scene.add(pointLightHelper);
-
   // MATERIALS
 
   const blackMaterial = new THREE.MeshPhongMaterial({ color: 0x0f0f0f });
@@ -64,7 +80,7 @@ const init = () => {
   const textGeometry = new THREE.TextGeometry('BLACK JELLY', { font, size: 20, height: 4 });
   const textMesh = new THREE.Mesh(textGeometry, [blackMaterial, greyMaterial]);
   textGeometry.computeBoundingBox();
-  const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+  textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
   textMesh.position.set(-0.5 * textWidth, 200, 0);
   textMesh.rotation.x = Math.PI / 4;
   scene.add(textMesh);
@@ -73,7 +89,6 @@ const init = () => {
 
   const cylinderRadiusTop = 3;
   const cylinderRadiusBottom = 3;
-  const cylinderHeight = 20;
   const cylinderRadialSegments = 32;
   const cylinderGeometry = new THREE.CylinderGeometry(
     cylinderRadiusTop, cylinderRadiusBottom, cylinderHeight, cylinderRadialSegments,
@@ -83,9 +98,20 @@ const init = () => {
   cylinder.rotation.z = Math.PI / 2;
   scene.add(cylinder);
 
+  // SPHERE
+
+  const sphereWidthSegments = 32;
+  const sphereHeightSegments = 32;
+  const sphereGeometry = new THREE.SphereGeometry(
+    sphereRadius, sphereWidthSegments, sphereHeightSegments,
+  );
+  sphere = new THREE.Mesh(sphereGeometry, blackMaterial);
+  sphere.position.set(0, sphereMinY, 0);
+  scene.add(sphere);
+
   // AXES
 
-  // const axes = new THREE.AxesHelper(100);
+  // const axes = new THREE.AxesHelper(300);
   // scene.add(axes);
 };
 
@@ -93,7 +119,42 @@ const render = () => {
   renderer.render(scene, camera);
 };
 
+const updateSpherePos = (delta) => {
+  sphere.position.y += delta;
+  sphere.position.x += sphereDirection * delta * sphereSlope;
+};
+
 const update = () => {
+  const timeDelta = clock.getDelta();
+  const diffY = sphereDirection * timeDelta * 60;
+
+  if (!gameLost) {
+    const breakpoint = sphereDirection === 1 ? sphereMaxY : sphereMinY;
+    const distToBreakpoint = breakpoint - sphere.position.y;
+    const breakpointReached = sphereDirection * diffY >= sphereDirection * distToBreakpoint;
+
+    if (breakpointReached) {
+      if (sphereDirection === 1) {
+        if (Math.abs(sphere.position.x) <= textWidth / 2) {
+          updateSpherePos(distToBreakpoint);
+          sphereDirection = -1;
+        } else {
+          updateSpherePos(diffY);
+          gameLost = true;
+        }
+      } else if (sphereDirection === -1) {
+        if (Math.abs(sphere.position.x - cylinder.position.x) <= sphereCylinderMaxDist) {
+          updateSpherePos(distToBreakpoint);
+          sphereDirection = 1;
+          sphereSlope = (sphere.position.x - cylinder.position.x) / sphereCylinderMaxDist;
+        } else {
+          updateSpherePos(diffY);
+          gameLost = true;
+        }
+      }
+    } else { updateSpherePos(diffY); }
+  } else { updateSpherePos(diffY); }
+
   controls.update();
 };
 
@@ -119,7 +180,7 @@ const onMouseMove = (e) => {
 
   const factor = ((clientX - window.innerWidth / 2) / (window.innerWidth / 2));
 
-  cylinder.position.setX(factor * 70);
+  cylinder.position.setX(factor * 90);
   gsap.to(camera.position, { duration: 1, x: factor * 20 });
   gsap.to(camera.position, { duration: 1, z: 100 - Math.abs(factor) * 30 });
 };
@@ -129,6 +190,8 @@ const onMouseMove = (e) => {
 init();
 
 window.addEventListener('resize', onResize);
+
+clock.start();
 
 animate();
 
