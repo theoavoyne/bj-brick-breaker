@@ -1,3 +1,5 @@
+/* eslint-disable no-param-reassign */
+
 import 'normalize.css/normalize.css';
 import './static/styles/base.scss';
 
@@ -10,6 +12,10 @@ import workSans from './static/fonts/workSans.json';
 // PARAMETERS
 
 const cylinderHeight = 20;
+const plainLetters = [
+  ['B', 3], ['L', 4], ['A', 0], ['C', 3], ['K', 12],
+  ['J', 3], ['E', 3], ['L', 3], ['L', 3], ['Y', 0],
+];
 const sphereMaxY = 190;
 const sphereMinY = 96;
 const sphereRadius = 5;
@@ -28,6 +34,7 @@ let camera;
 let controls;
 let cylinder;
 let gameLost = false;
+let letters;
 let renderer;
 let scene;
 let sphere;
@@ -77,13 +84,31 @@ const init = () => {
   // TEXT
 
   const font = new THREE.Font(workSans);
-  const textGeometry = new THREE.TextGeometry('BLACK JELLY', { font, size: 20, height: 4 });
-  const textMesh = new THREE.Mesh(textGeometry, [blackMaterial, greyMaterial]);
-  textGeometry.computeBoundingBox();
-  textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-  textMesh.position.set(-0.5 * textWidth, 200, 0);
-  textMesh.rotation.x = Math.PI / 4;
-  scene.add(textMesh);
+  const textGeometryParams = { font, size: 20, height: 4 };
+
+  letters = plainLetters.map((plainLetter) => {
+    const letterGeometry = new THREE.TextGeometry(plainLetter[0], textGeometryParams);
+    letterGeometry.computeBoundingBox();
+    const letter = new THREE.Mesh(letterGeometry, [blackMaterial, greyMaterial]);
+    letter.userData = {
+      spaceRight: plainLetter[1],
+      width: letter.geometry.boundingBox.max.x - letter.geometry.boundingBox.min.x,
+    };
+    return letter;
+  });
+
+  textWidth = letters.reduce((acc, letter) => (
+    acc + letter.userData.spaceRight + letter.userData.width
+  ), 0);
+
+  let nextX = -0.5 * textWidth;
+
+  letters.forEach((letter) => {
+    letter.position.set(nextX, 200, 0);
+    letter.rotation.x = Math.PI / 4;
+    nextX += letter.userData.spaceRight + letter.userData.width;
+    scene.add(letter);
+  });
 
   // CYLINDER
 
@@ -135,13 +160,19 @@ const update = () => {
 
     if (breakpointReached) {
       if (sphereDirection === 1) {
-        if (Math.abs(sphere.position.x) <= textWidth / 2) {
-          updateSpherePos(distToBreakpoint);
+        updateSpherePos(distToBreakpoint);
+        let hits = 0;
+        letters.forEach((letter, index) => {
+          if (sphere.position.x >= letter.position.x - sphereRadius
+            && sphere.position.x <= letter.position.x + letter.userData.width + sphereRadius) {
+            letters.splice(index, 1);
+            scene.remove(letter);
+            hits += 1;
+          }
+        });
+        if (hits > 0) {
           sphereDirection = -1;
-        } else {
-          updateSpherePos(diffY);
-          gameLost = true;
-        }
+        } else { gameLost = true; }
       } else if (sphereDirection === -1) {
         if (Math.abs(sphere.position.x - cylinder.position.x) <= sphereCylinderMaxDist) {
           updateSpherePos(distToBreakpoint);
